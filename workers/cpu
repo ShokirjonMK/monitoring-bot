@@ -1,0 +1,28 @@
+calculate_cpu_load() {
+	current_cpu_load=$(uptime | awk '{ print $(NF-2) }' | tr -d ',' | tr -d '.')
+	cpu_count=$(nproc)
+	current_cpu_load_percent=$(echo "$current_cpu_load/$cpu_count" | bc)
+	check_date=$(date)
+	if [[ $current_cpu_load_percent -ge $CPU_ALERT_PERCENT && ! -f ${STATE_FILES_DIR}/cpu_on_alarm ]]; then
+		cpu_active_alarm_count=$(($cpu_active_alarm_count+1))
+
+		if [[ $LOG_LEVEL == "error" ]]; then
+			echo "$check_date | CPU checked: ${current_cpu_load_percent}%" >> $LOG_FILE_PATH/cpu.log
+		fi
+
+		if [[ $cpu_active_alarm_count -ge $CPU_PEAK_COUNT ]]; then
+			touch $STATE_FILES_DIR/cpu_on_alarm
+			MESSAGE="${MESSAGE_HEADER}%0A%0A🔥 ${HOST_NAME} 🔥%0A%0ACPU is over: ${current_cpu_load_percent}%"
+			curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage -d chat_id=$CHAT_ID -d text="$MESSAGE" > /dev/null
+		fi
+
+	elif [[ $current_cpu_load_percent -lt $CPU_ALERT_PERCENT && -f ${STATE_FILES_DIR}/cpu_on_alarm ]]; then
+		cpu_active_alarm_count=0
+		rm -f $STATE_FILES_DIR/cpu_on_alarm
+		MESSAGE="${MESSAGE_HEADER}%0A%0A✅ ${HOST_NAME} ✅%0A%0ACPU is normal: ${current_cpu_load_percent}%"
+		curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage -d chat_id=$CHAT_ID -d text="$MESSAGE" > /dev/null
+	fi
+	if [[ $LOG_LEVEL == "debug" ]]; then
+		echo "$check_date | CPU checked: ${current_cpu_load_percent}%" >> $LOG_FILE_PATH/cpu.log
+	fi
+}

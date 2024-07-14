@@ -1,0 +1,24 @@
+calculate_storage() {
+	check_date=$(date)
+	for mountpoint in ${STORAGE_MOUNTPOINTS}; do
+		current_storage_usage=$(df -h ${mountpoint} | tail -n 1 | awk '{ print $(NF-1) }' | tr -d /%//)
+		if [[ $current_storage_usage -ge $STORAGE_ALERT_PERCENT && ! -f ${STATE_FILES_DIR}/storage_on_alarm ]]; then
+			if [[ $LOG_LEVEL == "error" ]]; then
+				echo "$check_date | STORAGE checked: ${current_storage_usage}%" >> $LOG_FILE_PATH/storage.log
+			fi
+
+			touch $STATE_FILES_DIR/storage_on_alarm
+			MESSAGE="${MESSAGE_HEADER}%0A%0A🔥 ${HOST_NAME} 🔥%0A%0ASTORAGE is almost full: ${current_storage_usage}% %0A%0AMountpoint: ${mountpoint}"
+			curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage -d chat_id=$CHAT_ID -d text="$MESSAGE" > /dev/null
+
+		elif [[ $current_storage_usage -lt $STORAGE_ALERT_PERCENT && -f ${STATE_FILES_DIR}/storage_on_alarm ]]; then
+			rm -f $STATE_FILES_DIR/storage_on_alarm
+			MESSAGE="${MESSAGE_HEADER}%0A%0A✅ ${HOST_NAME} ✅%0A%0ASTORAGE is normal: ${current_storage_usage}% %0A%0AMountpoint: ${mountpoint}"
+			curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage -d chat_id=$CHAT_ID -d text="$MESSAGE" > /dev/null
+		fi
+		if [[ $LOG_LEVEL == "debug" ]]; then
+			echo "$check_date | STORAGE checked: ${current_storage_usage}%" >> $LOG_FILE_PATH/storage.log
+		fi
+	done	
+}
+
