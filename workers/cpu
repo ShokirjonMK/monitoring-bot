@@ -3,6 +3,10 @@ calculate_cpu_load() {
 	cpu_count=$(nproc)
 	current_cpu_load_percent=$(echo "$current_cpu_load/$cpu_count" | bc)
 	check_date=$(date)
+	
+	curl -s -X POST https://api.telegram.org/bot$BOT_TOKEN/sendMessage -d chat_id=$CHAT_ID -d text="Mk test TEST" > /dev/null
+
+
 	if [[ $current_cpu_load_percent -ge $CPU_ALERT_PERCENT && ! -f ${STATE_FILES_DIR}/cpu_on_alarm ]]; then
 		cpu_active_alarm_count=$(($cpu_active_alarm_count+1))
 
